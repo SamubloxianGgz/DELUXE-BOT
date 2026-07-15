@@ -14,11 +14,25 @@ const { state, saveCreds } = await useMultiFileAuthState("session")
 const sock = makeWASocket({
     logger: pino({ level: "silent" }),
     auth: state,
-    printQRInTerminal: false
+    printQRInTerminal: false,
+    browser: ["DELUXE-BOT V4","Chrome","1.0.0"]
+})
 })
 
 sock.ev.on("creds.update", saveCreds)
+if(!sock.authState?.creds?.registered){
 
+setTimeout(async()=>{
+
+let phone = "573137072076"
+
+let code = await sock.requestPairingCode(phone)
+
+console.log("🔑 CODIGO DE PAREO:", code)
+
+},3000)
+
+}
 sock.ev.on("connection.update", (update)=>{
     const {connection,lastDisconnect} = update
 
