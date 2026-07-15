@@ -8,83 +8,102 @@ const pino = require("pino")
 const fs = require("fs")
 const config = require("./config")
 
-async function startBot(){
+async function startBot() {
 
-const { state, saveCreds } = await useMultiFileAuthState("session")
+  const { state, saveCreds } = await useMultiFileAuthState("session")
 
-const sock = makeWASocket({
-const commands = {}
+  const commands = {}
 
-fs.readdirSync("./commands").forEach(file => {
+  fs.readdirSync("./commands").forEach(file => {
     let command = require("./commands/" + file)
     commands[command.name] = command
-})    
-  logger: pino({ level: "silent" }),
+  })
+
+  const sock = makeWASocket({
+    logger: pino({ level: "silent" }),
     auth: state,
     printQRInTerminal: false,
-    browser: ["DELUXE-BOT V4","Chrome","1.0.0"]
-})
-})
+    browser: ["DELUXE-BOT V4", "Chrome", "1.0.0"]
+  })
 
-sock.ev.on("creds.update", saveCreds)
-if(!sock.authState?.creds?.registered){
 
-setTimeout(async()=>{
+  sock.ev.on("creds.update", saveCreds)
 
-let phone = "573137072076"
 
-let code = await sock.requestPairingCode(phone)
+  if (!state.creds.registered) {
 
-console.log("🔑 CODIGO DE PAREO:", code)
+    setTimeout(async () => {
 
-},3000)
+      let phone = "573137072076"
 
-}
-sock.ev.on("connection.update", (update)=>{
-    const {connection,lastDisconnect} = update
+      let code = await sock.requestPairingCode(phone)
 
-    if(connection === "open"){
-        console.log("✅ DELUXE-BOT conectado")
+      console.log("🔑 CODIGO DE PAREO:", code)
+
+    }, 3000)
+
+  }
+
+
+  sock.ev.on("connection.update", (update) => {
+
+    const { connection, lastDisconnect } = update
+
+    if (connection === "open") {
+      console.log("✅ DELUXE-BOT V4 conectado")
     }
 
-    if(connection === "close"){
-        const reason = lastDisconnect?.error?.output?.statusCode
+    if (connection === "close") {
 
-        if(reason !== DisconnectReason.loggedOut){
-            startBot()
-        }
+      const reason = lastDisconnect?.error?.output?.statusCode
+
+      if (reason !== DisconnectReason.loggedOut) {
+        startBot()
+      }
+
     }
-})
+
+  })
+
+
+  sock.ev.on("messages.upsert", async ({ messages }) => {
+
+    let m = messages[0]
+
+    if (!m.message) return
+
+    let text =
+      m.message.conversation ||
+      m.message.extendedTextMessage?.text ||
+      ""
+
+
+    if (!text.startsWith(config.prefix)) return
+
+
+    let commandName = text
+      .slice(config.prefix.length)
+      .trim()
+      .split(" ")[0]
+      .toLowerCase()
+
+
+    if (commands[commandName]) {
+
+      await commands[commandName].run(sock, {
+
+        chat: m.key.remoteJid,
+
+        sender: m.key.participant ||
+        m.key.remoteJid
+
+      })
+
+    }
+
+  })
 
 }
+
 
 startBot()
-sock.ev.on("messages.upsert", async ({messages}) => {
-
-let m = messages[0]
-
-if(!m.message) return
-
-let text = 
-m.message.conversation ||
-m.message.extendedTextMessage?.text ||
-""
-
-if(!text.startsWith(config.prefix)) return
-
-let commandName = text
-.slice(config.prefix.length)
-.trim()
-.split(" ")[0]
-.toLowerCase()
-
-if(commands[commandName]){
-
-await commands[commandName].run(sock,{
-chat:m.key.remoteJid,
-sender:m.key.participant || m.key.remoteJid
-})
-
-}
-
-})
