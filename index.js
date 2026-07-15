@@ -36,7 +36,7 @@ async function startBot() {
 
       let phone = "573137072076"
 
-      let code = await sock.requestPairingCode(phone)
+      let code = await sock.requestPairingCode(phone.replace(/\D/g, ""))
 
       console.log("🔑 CODIGO DE PAREO:", code)
 
