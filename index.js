@@ -5,6 +5,7 @@ const {
 } = require("@whiskeysockets/baileys")
 
 const pino = require("pino")
+const fs = require("fs")
 const config = require("./config")
 
 async function startBot(){
@@ -12,7 +13,13 @@ async function startBot(){
 const { state, saveCreds } = await useMultiFileAuthState("session")
 
 const sock = makeWASocket({
-    logger: pino({ level: "silent" }),
+const commands = {}
+
+fs.readdirSync("./commands").forEach(file => {
+    let command = require("./commands/" + file)
+    commands[command.name] = command
+})    
+  logger: pino({ level: "silent" }),
     auth: state,
     printQRInTerminal: false,
     browser: ["DELUXE-BOT V4","Chrome","1.0.0"]
@@ -52,3 +59,32 @@ sock.ev.on("connection.update", (update)=>{
 }
 
 startBot()
+sock.ev.on("messages.upsert", async ({messages}) => {
+
+let m = messages[0]
+
+if(!m.message) return
+
+let text = 
+m.message.conversation ||
+m.message.extendedTextMessage?.text ||
+""
+
+if(!text.startsWith(config.prefix)) return
+
+let commandName = text
+.slice(config.prefix.length)
+.trim()
+.split(" ")[0]
+.toLowerCase()
+
+if(commands[commandName]){
+
+await commands[commandName].run(sock,{
+chat:m.key.remoteJid,
+sender:m.key.participant || m.key.remoteJid
+})
+
+}
+
+})
